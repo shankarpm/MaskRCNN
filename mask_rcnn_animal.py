@@ -164,73 +164,79 @@ class AnimalConfig(Config):
     	# simplify GPU config
 	GPU_COUNT = 1
 	IMAGES_PER_GPU = 1
-  
-# train set
-train_set = AnimalDataset()
-train_set.load_dataset('kangaroo', is_train=True)
-train_set.prepare()
-print('Train: %d' % len(train_set.image_ids))
- 
-# test/val set
-test_set = AnimalDataset()
-test_set.load_dataset('kangaroo', is_train=False)
-test_set.prepare()
-print('Test: %d' % len(test_set.image_ids))
+    
 
- 
-# load an image
-image_id = 0
-image = train_set.load_image(image_id)
-print(image.shape)
-# load image mask
-mask, class_ids = train_set.load_mask(image_id)
-print(mask.shape)
-# plot image
-pyplot.imshow(image)
-# plot mask
-pyplot.imshow(mask[:, :, 0], cmap='gray', alpha=0.5)
-pyplot.show()
+def main():  
+    # train set
+    train_set = AnimalDataset()
+    train_set.load_dataset('kangaroo', is_train=True)
+    train_set.prepare()
+    print('Train: %d' % len(train_set.image_ids))
+     
+    # test/val set
+    test_set = AnimalDataset()
+    test_set.load_dataset('kangaroo', is_train=False)
+    test_set.prepare()
+    print('Test: %d' % len(test_set.image_ids))
+    
+     
+    # load an image
+    image_id = 0
+    image = train_set.load_image(image_id)
+    print(image.shape)
+    # load image mask
+    mask, class_ids = train_set.load_mask(image_id)
+    print(mask.shape)
+    # plot image
+    pyplot.imshow(image)
+    # plot mask
+    pyplot.imshow(mask[:, :, 0], cmap='gray', alpha=0.5)
+    pyplot.show()
+    
+     
+    # define image id
+    image_id = 1
+    # load the image
+    image = train_set.load_image(image_id)
+    # load the masks and the class ids
+    mask, class_ids = train_set.load_mask(image_id)
+    # extract bounding boxes from the masks
+    bbox = extract_bboxes(mask)
+    # display image with masks and bounding boxes
+    display_instances(image, bbox, mask, class_ids, train_set.class_names)
+     
+    # prepare config
+    config = AnimalConfig()
+    config.display()
+    # define the model
+    model = MaskRCNN(mode='training', model_dir='./', config=config)
+    # load weights (mscoco) and exclude the output layers
+    model.load_weights('mask_rcnn_coco.h5', by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc",  "mrcnn_bbox", "mrcnn_mask"])
+    # train weights (output layers or 'heads')
+    model.train(train_set, test_set, learning_rate=config.LEARNING_RATE, epochs=1, layers='heads')
+    
+     
+    # create config
+    cfg = AnimalConfig()
+    # define the model
+    model = MaskRCNN(mode='inference', model_dir='./', config=cfg)
+    # load model weights
+    model.load_weights('mask_rcnn_kangaroo_cfg_0002.h5', by_name=True)
+    # evaluate model on training dataset
+    train_mAP = evaluate_model(train_set, model, cfg)
+    print("Train mAP: %.3f" % train_mAP)
+    # evaluate model on test dataset
+    test_mAP = evaluate_model(test_set, model, cfg)
+    print("Test mAP: %.3f" % test_mAP)
+    #
+    ## load model weights
+    #model_path = 'mask_rcnn_kangaroo_cfg_0005.h5'
+    #model.load_weights(model_path, by_name=True)
+    # plot predictions for train dataset
+    plot_actual_vs_predicted('train_actual_vs_pred.png',train_set, model, cfg)
+    # plot predictions for test dataset
+    plot_actual_vs_predicted('test_actual_vs_pred.png',test_set, model, cfg)
 
- 
-# define image id
-image_id = 1
-# load the image
-image = train_set.load_image(image_id)
-# load the masks and the class ids
-mask, class_ids = train_set.load_mask(image_id)
-# extract bounding boxes from the masks
-bbox = extract_bboxes(mask)
-# display image with masks and bounding boxes
-display_instances(image, bbox, mask, class_ids, train_set.class_names)
- 
-# prepare config
-config = AnimalConfig()
-config.display()
-# define the model
-model = MaskRCNN(mode='training', model_dir='./', config=config)
-# load weights (mscoco) and exclude the output layers
-model.load_weights('mask_rcnn_coco.h5', by_name=True, exclude=["mrcnn_class_logits", "mrcnn_bbox_fc",  "mrcnn_bbox", "mrcnn_mask"])
-# train weights (output layers or 'heads')
-model.train(train_set, test_set, learning_rate=config.LEARNING_RATE, epochs=1, layers='heads')
 
- 
-# create config
-cfg = AnimalConfig()
-# define the model
-model = MaskRCNN(mode='inference', model_dir='./', config=cfg)
-# load model weights
-model.load_weights('mask_rcnn_kangaroo_cfg_0002.h5', by_name=True)
-# evaluate model on training dataset
-train_mAP = evaluate_model(train_set, model, cfg)
-print("Train mAP: %.3f" % train_mAP)
-# evaluate model on test dataset
-test_mAP = evaluate_model(test_set, model, cfg)
-print("Test mAP: %.3f" % test_mAP)
-#
-## load model weights
-#model_path = 'mask_rcnn_kangaroo_cfg_0005.h5'
-#model.load_weights(model_path, by_name=True)
-# plot predictions for train dataset
-plot_actual_vs_predicted('train_actual_vs_pred.png',train_set, model, cfg)
-# plot predictions for test dataset
-plot_actual_vs_predicted('test_actual_vs_pred.png',test_set, model, cfg)
+if __name__ == "__main__":
+    main()
